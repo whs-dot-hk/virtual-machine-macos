@@ -10,12 +10,3 @@ users:
 ssh_pwauth: true
 chpasswd:
   expire: false
-write_files:
-  - path: /etc/systemd/system/getty@tty1.service.d/autologin.conf
-    content: |
-      [Service]
-      ExecStart=
-      ExecStart=-/sbin/agetty --autologin debian --noclear %I $TERM
-runcmd:
-  - systemctl daemon-reload
-  - systemctl restart getty@tty1.service
