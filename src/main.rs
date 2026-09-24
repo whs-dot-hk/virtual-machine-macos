@@ -5,12 +5,13 @@
 //! cloud image into a working directory, starts that helper, and waits until
 //! the window is closed or the guest powers off.
 //!
-//!   vmagent --image debian.raw
+//!   vmagent --image debian.raw --user-data seed/user-data --meta-data seed/meta-data
 //!
 //! Apple silicon, macOS 13+.
 
-use std::fs;
-use std::path::PathBuf;
+use std::fs::{self, File};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use clap::Parser;
@@ -26,6 +27,14 @@ struct Cli {
     /// Defaults to a new directory under /tmp.
     #[arg(long)]
     dir: Option<PathBuf>,
+
+    /// cloud-config. Must start with `#cloud-config`. Attached as a cidata disk.
+    #[arg(long)]
+    user_data: Option<PathBuf>,
+
+    /// cloud-init meta-data. Defaults to a one-line instance-id if omitted.
+    #[arg(long)]
+    meta_data: Option<PathBuf>,
 
     #[arg(long, default_value_t = 2)]
     cpus: u32,
@@ -57,16 +66,27 @@ fn main() {
         }
     }
 
+    let seed = match (&cli.user_data, &cli.meta_data) {
+        (None, None) => None,
+        _ => Some(write_cidata(&dir, cli.user_data.as_deref(), cli.meta_data.as_deref())),
+    };
+
     let vmcore = find_vmcore();
     eprintln!("booting with {}", vmcore.display());
-    eprintln!("login is the cloud image default, usually debian / debian");
+    if seed.is_none() {
+        eprintln!("login is the cloud image default, usually debian / debian");
+    }
     eprintln!("close the window to stop");
 
-    let status = Command::new(&vmcore)
-        .arg(disk)
+    let mut cmd = Command::new(&vmcore);
+    cmd.arg(&disk)
         .arg(dir.join("NVRAM"))
         .arg(cli.cpus.to_string())
-        .arg(cli.mem_mb.to_string())
+        .arg(cli.mem_mb.to_string());
+    if let Some(seed) = &seed {
+        cmd.arg(seed);
+    }
+    let status = cmd
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -76,6 +96,73 @@ fn main() {
         Ok(s) if s.success() => {}
         Ok(s) => std::process::exit(s.code().unwrap_or(1)),
         Err(e) => die(&format!("failed to run {}: {e}", vmcore.display())),
+    }
+}
+
+/// NoCloud seed: an 8 MiB FAT image labeled `cidata` with user-data and meta-data.
+/// Built with hdiutil so this stays a Mac tool and does not need mtools.
+fn write_cidata(dir: &Path, user_data: Option<&Path>, meta_data: Option<&Path>) -> PathBuf {
+    let user = match user_data {
+        Some(p) => fs::read(p).unwrap_or_else(|e| die(&format!("cannot read {}: {e}", p.display()))),
+        None => b"#cloud-config\n".to_vec(),
+    };
+    if !user.starts_with(b"#cloud-config") {
+        die("user-data must start with #cloud-config");
+    }
+    let meta = match meta_data {
+        Some(p) => fs::read(p).unwrap_or_else(|e| die(&format!("cannot read {}: {e}", p.display()))),
+        None => b"instance-id: vmagent-1\nlocal-hostname: debian\n".to_vec(),
+    };
+
+    let staging = dir.join("cidata-src");
+    if let Err(e) = fs::create_dir_all(&staging) {
+        die(&format!("cannot create {}: {e}", staging.display()));
+    }
+    write_file(&staging.join("user-data"), &user);
+    write_file(&staging.join("meta-data"), &meta);
+
+    let img = dir.join("cidata.raw");
+    let _ = fs::remove_file(&img);
+    let status = Command::new("hdiutil")
+        .args([
+            "create",
+            "-size",
+            "8m",
+            "-fs",
+            "MS-DOS",
+            "-volname",
+            "cidata",
+            "-format",
+            "UDRW",
+            "-srcfolder",
+            &staging.display().to_string(),
+            "-ov",
+        ])
+        .arg(&img)
+        .status();
+    match status {
+        Ok(s) if s.success() => {}
+        Ok(s) => die(&format!("hdiutil exited {}", s.code().unwrap_or(1))),
+        Err(e) => die(&format!("hdiutil failed: {e}")),
+    }
+    // hdiutil appends .dmg when the name has no extension it likes; normalize.
+    if !img.is_file() {
+        let dmg = dir.join("cidata.raw.dmg");
+        if dmg.is_file() {
+            if let Err(e) = fs::rename(&dmg, &img) {
+                die(&format!("cannot rename {}: {e}", dmg.display()));
+            }
+        } else {
+            die("hdiutil did not write cidata.raw");
+        }
+    }
+    img
+}
+
+fn write_file(path: &Path, bytes: &[u8]) {
+    let mut f = File::create(path).unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
+    if let Err(e) = f.write_all(bytes) {
+        die(&format!("cannot write {}: {e}", path.display()));
     }
 }
 

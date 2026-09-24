@@ -1,14 +1,15 @@
 // The smallest Virtualization.framework boot.
-// Usage: vmcore <disk.img> <NVRAM> <cpus> <memory-mb>
+// Usage: vmcore <disk.img> <NVRAM> <cpus> <memory-mb> [cidata.raw]
 // Boots the guest disk with VZEFIBootLoader, not a direct kernel.
-// A GUI window is required: the framework has no serial console on this path.
+// Optional last arg is a NoCloud seed disk (FAT, label cidata). Cloud-init
+// reads it once. A GUI window is required: no serial console on this path.
 
 import Cocoa
 import Virtualization
 
 let args = CommandLine.arguments
-guard args.count == 5 else {
-    fputs("usage: vmcore <disk.img> <NVRAM> <cpus> <memory-mb>\n", stderr)
+guard args.count == 5 || args.count == 6 else {
+    fputs("usage: vmcore <disk.img> <NVRAM> <cpus> <memory-mb> [cidata.raw]\n", stderr)
     exit(1)
 }
 
@@ -16,6 +17,7 @@ let diskURL = URL(fileURLWithPath: args[1])
 let nvramURL = URL(fileURLWithPath: args[2])
 let cpus = Int(args[3]) ?? 2
 let memBytes = (UInt64(args[4]) ?? 2048) * 1024 * 1024
+let seedURL = args.count == 6 ? URL(fileURLWithPath: args[5]) : nil
 
 try FileManager.default.createDirectory(at: nvramURL.deletingLastPathComponent(), withIntermediateDirectories: true)
 
@@ -24,7 +26,12 @@ config.cpuCount = max(cpus, VZVirtualMachineConfiguration.minimumAllowedCPUCount
 config.memorySize = max(memBytes, VZVirtualMachineConfiguration.minimumAllowedMemorySize)
 
 let disk = try VZDiskImageStorageDeviceAttachment(url: diskURL, readOnly: false)
-config.storageDevices = [VZVirtioBlockDeviceConfiguration(attachment: disk)]
+var storage = [VZVirtioBlockDeviceConfiguration(attachment: disk)]
+if let seedURL {
+    let seed = try VZDiskImageStorageDeviceAttachment(url: seedURL, readOnly: true)
+    storage.append(VZVirtioBlockDeviceConfiguration(attachment: seed))
+}
+config.storageDevices = storage
 
 let net = VZVirtioNetworkDeviceConfiguration()
 net.attachment = VZNATNetworkDeviceAttachment()
