@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Split a Debian nocloud raw disk into kernel, initrd, and a command line.
+"""Split a Debian cloud raw disk into kernel, initrd, and a command line.
 
 The kernel and initrd live in /boot on the ext4 root, not on the ESP.
 vmlinuz is an uncompressed ARM64 Image (the EFI stub is only a header).
@@ -162,7 +162,7 @@ def main():
     grub = grub.decode()
     kernel_path, kargs = linux_line(grub)
     cmdline = command_line(kargs, args.append)
-    # nocloud images often have no /boot/vmlinuz symlink. GRUB names the real file.
+    # Cloud images often have no /boot/vmlinuz symlink. GRUB names the real file.
     _, kernel = fs.read_file(fs.lookup(kernel_path))
     initrd_path = kernel_path.replace("/vmlinuz-", "/initrd.img-")
     if initrd_path == kernel_path:

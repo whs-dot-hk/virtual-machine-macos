@@ -13,4 +13,4 @@ bin/vmagent --image images/debian.raw --user-data seed/user-data --meta-data see
 
 A window opens with the guest console. The disk is not booted through GRUB. `vmagent` splits `vmlinuz` and `initrd.img` out of `/boot` and `vmcore` starts them with `VZLinuxBootLoader`. The kernel file Debian ships is already an uncompressed ARM64 Image (it also has an EFI stub). `root=` is copied from `grub.cfg`. Close the window to stop. The working disk, kernel, and initrd are under `/tmp/vmagent-<time>` unless you pass `--dir`.
 
-Login on the nocloud image is usually `debian` / `debian`. Pass `--user-data` to attach a NoCloud seed disk labeled `cidata` and add `ds=nocloud` to the kernel command line. `user-data` must start with `#cloud-config`. Cloud-init applies it once per `instance-id`.
+The generic image has no default password. Pass `--user-data` so cloud-init can create one. That attaches a NoCloud seed disk labeled `cidata` and adds `ds=nocloud` to the kernel command line. `user-data` must start with `#cloud-config`. Cloud-init applies it once per `instance-id`. The nocloud image is not used: it does not ship cloud-init, so the seed is ignored.

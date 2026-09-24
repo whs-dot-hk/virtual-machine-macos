@@ -18,7 +18,7 @@ use clap::Parser;
 #[derive(Parser)]
 #[command(name = "vmagent", version, about = "Boot a Debian cloud image on macOS")]
 struct Cli {
-    /// Path to a Debian nocloud raw image (arm64 on Apple silicon).
+    /// Path to a Debian generic raw image (arm64 on Apple silicon).
     #[arg(long)]
     image: PathBuf,
 
@@ -77,7 +77,7 @@ fn main() {
     let vmcore = find_vmcore();
     eprintln!("booting with {}", vmcore.display());
     if seed.is_none() {
-        eprintln!("login is the cloud image default, usually debian / debian");
+        eprintln!("no user-data: the generic image has no default login");
     }
     eprintln!("close the window to stop");
 

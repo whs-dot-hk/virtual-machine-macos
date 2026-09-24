@@ -1,10 +1,12 @@
 #!/bin/sh
-# Download the Debian arm64 nocloud image once. Needs curl.
+# Download the Debian arm64 generic cloud image once. Needs curl.
 # Latest tree ships .raw and .tar.xz, not .raw.xz.
 set -e
 cd "$(dirname "$0")/.."
 mkdir -p images
-url="https://cloud.debian.org/images/cloud/trixie/latest/debian-13-nocloud-arm64.tar.xz"
+# generic (not nocloud). The nocloud image has no cloud-init package, so a
+# cidata disk does nothing. The generic image runs cloud-init on boot.
+url="https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-arm64.tar.xz"
 curl -fL "$url" -o images/debian.tar.xz
 rm -rf images/debian-unpack
 mkdir images/debian-unpack
