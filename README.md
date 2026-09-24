@@ -10,6 +10,6 @@ scripts/fetch-debian.sh          # once
 bin/vmagent --image images/debian.raw
 ```
 
-A window opens with the guest console. Close it to stop. The working disk is under `/tmp/vmagent-<time>` unless you pass `--dir`.
+A window opens with the guest console. The VM boots the disk with UEFI firmware (`VZEFIBootLoader`); the Debian image then loads its own EFI boot entry. Close the window to stop. The working disk and UEFI variable store are under `/tmp/vmagent-<time>` unless you pass `--dir`.
 
 Login on the nocloud image is usually `debian` / `debian`.
