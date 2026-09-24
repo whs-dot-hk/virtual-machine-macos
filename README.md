@@ -8,8 +8,9 @@ Rust does the setup. A small Swift program (`vmcore`) calls Virtualization.frame
 scripts/build.sh
 scripts/fetch-debian.sh          # once
 bin/vmagent --image images/debian.raw
+bin/vmagent --image images/debian.raw --user-data cloud-init/user-data --meta-data cloud-init/meta-data
 ```
 
-A window opens with the guest console. The VM boots the disk with `VZEFIBootLoader`, the same path as Apple's GUI Linux sample. The Debian image then loads its own boot entry. Close the window to stop. The working disk and `NVRAM` (the EFI variable store) are under `/tmp/vmagent-<time>` unless you pass `--dir`.
+A window opens with the guest console. The disk is not booted through GRUB. `vmagent` splits `vmlinuz` and `initrd.img` out of `/boot` and `vmcore` starts them with `VZLinuxBootLoader`. The kernel file Debian ships is already an uncompressed ARM64 Image (it also has an EFI stub). `root=` is copied from `grub.cfg`. Close the window to stop. The working disk, kernel, and initrd are under `/tmp/vmagent-<time>` unless you pass `--dir`.
 
-Login on the nocloud image is usually `debian` / `debian`.
+The generic image has no default password. Pass `--user-data` so cloud-init can create one. That attaches a disk labeled `cidata` and points cloud-init at it from the kernel command line. `user-data` must start with `#cloud-config`. Cloud-init applies it once per `instance-id`. `cloud-init/user-data` creates `debian` with password `debian` and logs that user in on the console, so the window does not ask for a password.
