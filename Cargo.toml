@@ -1,0 +1,12 @@
+[package]
+name = "vmagent"
+version = "0.1.0"
+edition = "2021"
+description = "Boot a Debian cloud image on macOS with Apple's Virtualization framework"
+
+[[bin]]
+name = "vmagent"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
