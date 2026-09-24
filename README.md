@@ -11,6 +11,6 @@ bin/vmagent --image images/debian.raw
 bin/vmagent --image images/debian.raw --user-data seed/user-data --meta-data seed/meta-data
 ```
 
-A window opens with the guest console. The VM boots the disk with `VZEFIBootLoader`, the same path as Apple's GUI Linux sample. The Debian image then loads its own boot entry. Close the window to stop. The working disk and `NVRAM` (the EFI variable store) are under `/tmp/vmagent-<time>` unless you pass `--dir`.
+A window opens with the guest console. The disk is not booted through GRUB. `vmagent` splits `vmlinuz` and `initrd.img` out of `/boot` and `vmcore` starts them with `VZLinuxBootLoader`. The kernel file Debian ships is already an uncompressed ARM64 Image (it also has an EFI stub). `root=` is copied from `grub.cfg`. Close the window to stop. The working disk, kernel, and initrd are under `/tmp/vmagent-<time>` unless you pass `--dir`.
 
-Login on the nocloud image is usually `debian` / `debian`. Pass `--user-data` to attach a NoCloud seed disk labeled `cidata` instead. `user-data` must start with `#cloud-config`. Cloud-init applies it once per `instance-id`.
+Login on the nocloud image is usually `debian` / `debian`. Pass `--user-data` to attach a NoCloud seed disk labeled `cidata` and add `ds=nocloud` to the kernel command line. `user-data` must start with `#cloud-config`. Cloud-init applies it once per `instance-id`.

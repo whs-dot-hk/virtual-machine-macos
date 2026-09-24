@@ -1,25 +1,25 @@
-// The smallest Virtualization.framework boot.
-// Usage: vmcore <disk.img> <NVRAM> <cpus> <memory-mb> [cidata.raw]
-// Boots the guest disk with VZEFIBootLoader, not a direct kernel.
-// Optional last arg is a NoCloud seed disk (FAT, label cidata). Cloud-init
-// reads it once. A GUI window is required: no serial console on this path.
+// Boot a Linux guest with a direct kernel.
+// Usage: vmcore <disk.img> <kernel> <initrd> <cmdline> <cpus> <memory-mb> [cidata.raw]
+// VZLinuxBootLoader takes the kernel command line, so ds=nocloud is an argument,
+// not something typed into GRUB. The disk is still the root filesystem.
+// A GUI window is required: no serial console on this path.
 
 import Cocoa
 import Virtualization
 
 let args = CommandLine.arguments
-guard args.count == 5 || args.count == 6 else {
-    fputs("usage: vmcore <disk.img> <NVRAM> <cpus> <memory-mb> [cidata.raw]\n", stderr)
+guard args.count == 7 || args.count == 8 else {
+    fputs("usage: vmcore <disk.img> <kernel> <initrd> <cmdline> <cpus> <memory-mb> [cidata.raw]\n", stderr)
     exit(1)
 }
 
 let diskURL = URL(fileURLWithPath: args[1])
-let nvramURL = URL(fileURLWithPath: args[2])
-let cpus = Int(args[3]) ?? 2
-let memBytes = (UInt64(args[4]) ?? 2048) * 1024 * 1024
-let seedURL = args.count == 6 ? URL(fileURLWithPath: args[5]) : nil
-
-try FileManager.default.createDirectory(at: nvramURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+let kernelURL = URL(fileURLWithPath: args[2])
+let initrdURL = URL(fileURLWithPath: args[3])
+let cmdline = args[4]
+let cpus = Int(args[5]) ?? 2
+let memBytes = (UInt64(args[6]) ?? 2048) * 1024 * 1024
+let seedURL = args.count == 8 ? URL(fileURLWithPath: args[7]) : nil
 
 let config = VZVirtualMachineConfiguration()
 config.cpuCount = max(cpus, VZVirtualMachineConfiguration.minimumAllowedCPUCount)
@@ -38,10 +38,9 @@ net.attachment = VZNATNetworkDeviceAttachment()
 config.networkDevices = [net]
 config.entropyDevices = [VZVirtioEntropyDeviceConfiguration()]
 
-// Apple's GUI Linux sample stores the EFI variable store in a file named NVRAM
-// and boots with VZEFIBootLoader. The guest disk supplies the boot entry.
-let boot = VZEFIBootLoader()
-boot.variableStore = try VZEFIVariableStore(creatingVariableStoreAt: nvramURL)
+let boot = VZLinuxBootLoader(kernelURL: kernelURL)
+boot.initialRamdiskURL = initrdURL
+boot.commandLine = cmdline
 config.bootLoader = boot
 
 let gui = VZVirtioGraphicsDeviceConfiguration()

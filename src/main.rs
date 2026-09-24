@@ -1,9 +1,8 @@
 //! Boot Debian on macOS.
 //!
 //! Apple's Virtualization.framework has no C API, so the VM itself is a tiny
-//! Swift program (`vmcore`). This binary does everything else: it copies the
-//! cloud image into a working directory, starts that helper, and waits until
-//! the window is closed or the guest powers off.
+//! Swift program (`vmcore`). This binary copies the cloud image, splits the
+//! kernel and initrd out of it, and starts that helper.
 //!
 //!   vmagent --image debian.raw --user-data seed/user-data --meta-data seed/meta-data
 //!
@@ -23,7 +22,7 @@ struct Cli {
     #[arg(long)]
     image: PathBuf,
 
-    /// Where the working copy of the disk and NVRAM go.
+    /// Where the working disk, kernel, and initrd go.
     /// Defaults to a new directory under /tmp.
     #[arg(long)]
     dir: Option<PathBuf>,
@@ -71,6 +70,10 @@ fn main() {
         _ => Some(write_cidata(&dir, cli.user_data.as_deref(), cli.meta_data.as_deref())),
     };
 
+    let append = if seed.is_some() { "ds=nocloud" } else { "" };
+    let cmdline = split_image(&disk, &dir, append);
+    eprintln!("kernel command line: {cmdline}");
+
     let vmcore = find_vmcore();
     eprintln!("booting with {}", vmcore.display());
     if seed.is_none() {
@@ -80,7 +83,9 @@ fn main() {
 
     let mut cmd = Command::new(&vmcore);
     cmd.arg(&disk)
-        .arg(dir.join("NVRAM"))
+        .arg(dir.join("vmlinuz"))
+        .arg(dir.join("initrd"))
+        .arg(&cmdline)
         .arg(cli.cpus.to_string())
         .arg(cli.mem_mb.to_string());
     if let Some(seed) = &seed {
@@ -97,6 +102,44 @@ fn main() {
         Ok(s) => std::process::exit(s.code().unwrap_or(1)),
         Err(e) => die(&format!("failed to run {}: {e}", vmcore.display())),
     }
+}
+
+/// Pull vmlinuz, initrd, and the grub root= line out of the disk.
+fn split_image(disk: &Path, dir: &Path, append: &str) -> String {
+    let script = find_script();
+    let out = Command::new("python3")
+        .arg(&script)
+        .arg(disk)
+        .arg(dir)
+        .arg("--append")
+        .arg(append)
+        .output()
+        .unwrap_or_else(|e| die(&format!("cannot run {}: {e}", script.display())));
+    if !out.status.success() {
+        eprint!("{}", String::from_utf8_lossy(&out.stderr));
+        die("failed to split kernel and initrd out of the image");
+    }
+    let line = String::from_utf8_lossy(&out.stdout);
+    let line = line.trim();
+    if line.is_empty() {
+        die("split produced an empty command line");
+    }
+    line.to_string()
+}
+
+fn find_script() -> PathBuf {
+    if let Some(p) = std::env::var_os("SPLIT_IMAGE") {
+        return PathBuf::from(p);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let next_to = dir.join("split-image.py");
+            if next_to.is_file() {
+                return next_to;
+            }
+        }
+    }
+    PathBuf::from("scripts/split-image.py")
 }
 
 /// NoCloud seed: an 8 MiB FAT image labeled `cidata` with user-data and meta-data.
@@ -145,7 +188,6 @@ fn write_cidata(dir: &Path, user_data: Option<&Path>, meta_data: Option<&Path>) 
         Ok(s) => die(&format!("hdiutil exited {}", s.code().unwrap_or(1))),
         Err(e) => die(&format!("hdiutil failed: {e}")),
     }
-    // hdiutil appends .dmg when the name has no extension it likes; normalize.
     if !img.is_file() {
         let dmg = dir.join("cidata.raw.dmg");
         if dmg.is_file() {

@@ -1,9 +1,9 @@
 #!/bin/sh
-# Download the Debian arm64 nocloud image once. Needs curl and xz.
+# Download the Debian arm64 nocloud image once. Needs curl.
+# Latest tree ships .raw and .tar.xz, not .raw.xz.
 set -e
 cd "$(dirname "$0")/.."
 mkdir -p images
-# Latest tree ships .raw and .tar.xz, not .raw.xz.
 url="https://cloud.debian.org/images/cloud/trixie/latest/debian-13-nocloud-arm64.tar.xz"
 curl -fL "$url" -o images/debian.tar.xz
 rm -rf images/debian-unpack
