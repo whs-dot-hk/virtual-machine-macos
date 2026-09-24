@@ -1,7 +1,6 @@
 // Boot a Linux guest with a direct kernel.
 // Usage: vmcore <disk.img> <kernel> <initrd> <cmdline> <cpus> <memory-mb> [cidata.raw]
-// VZLinuxBootLoader takes the kernel command line, so ds=nocloud is an argument,
-// not something typed into GRUB. The disk is still the root filesystem.
+// VZLinuxBootLoader takes the kernel command line. The disk is still the root filesystem.
 // A GUI window is required: no serial console on this path.
 
 import Cocoa
@@ -19,7 +18,7 @@ let initrdURL = URL(fileURLWithPath: args[3])
 let cmdline = args[4]
 let cpus = Int(args[5]) ?? 2
 let memBytes = (UInt64(args[6]) ?? 2048) * 1024 * 1024
-let seedURL = args.count == 8 ? URL(fileURLWithPath: args[7]) : nil
+let cloudInitURL = args.count == 8 ? URL(fileURLWithPath: args[7]) : nil
 
 let config = VZVirtualMachineConfiguration()
 config.cpuCount = max(cpus, VZVirtualMachineConfiguration.minimumAllowedCPUCount)
@@ -27,9 +26,9 @@ config.memorySize = max(memBytes, VZVirtualMachineConfiguration.minimumAllowedMe
 
 let disk = try VZDiskImageStorageDeviceAttachment(url: diskURL, readOnly: false)
 var storage = [VZVirtioBlockDeviceConfiguration(attachment: disk)]
-if let seedURL {
-    let seed = try VZDiskImageStorageDeviceAttachment(url: seedURL, readOnly: true)
-    storage.append(VZVirtioBlockDeviceConfiguration(attachment: seed))
+if let cloudInitURL {
+    let cloudInit = try VZDiskImageStorageDeviceAttachment(url: cloudInitURL, readOnly: true)
+    storage.append(VZVirtioBlockDeviceConfiguration(attachment: cloudInit))
 }
 config.storageDevices = storage
 

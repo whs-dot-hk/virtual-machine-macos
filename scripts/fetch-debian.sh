@@ -4,8 +4,7 @@
 set -e
 cd "$(dirname "$0")/.."
 mkdir -p images
-# generic (not nocloud). The nocloud image has no cloud-init package, so a
-# cidata disk does nothing. The generic image runs cloud-init on boot.
+# generic cloud image. It ships cloud-init, so a cidata disk is applied on boot.
 url="https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-arm64.tar.xz"
 curl -fL "$url" -o images/debian.tar.xz
 rm -rf images/debian-unpack

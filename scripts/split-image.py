@@ -153,7 +153,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("image")
     ap.add_argument("outdir")
-    ap.add_argument("--append", default="", help="extra kernel args, e.g. ds=nocloud")
+    ap.add_argument("--append", default="", help="extra kernel args")
     args = ap.parse_args()
 
     os.makedirs(args.outdir, exist_ok=True)

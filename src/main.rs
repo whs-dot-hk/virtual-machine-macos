@@ -4,7 +4,7 @@
 //! Swift program (`vmcore`). This binary copies the cloud image, splits the
 //! kernel and initrd out of it, and starts that helper.
 //!
-//!   vmagent --image debian.raw --user-data seed/user-data --meta-data seed/meta-data
+//!   vmagent --image debian.raw --user-data cloud-init/user-data --meta-data cloud-init/meta-data
 //!
 //! Apple silicon, macOS 13+.
 
@@ -65,18 +65,18 @@ fn main() {
         }
     }
 
-    let seed = match (&cli.user_data, &cli.meta_data) {
+    let cloud_init = match (&cli.user_data, &cli.meta_data) {
         (None, None) => None,
         _ => Some(write_cidata(&dir, cli.user_data.as_deref(), cli.meta_data.as_deref())),
     };
 
-    let append = if seed.is_some() { "ds=nocloud" } else { "" };
+    let append = if cloud_init.is_some() { "ds=nocloud" } else { "" };
     let cmdline = split_image(&disk, &dir, append);
     eprintln!("kernel command line: {cmdline}");
 
     let vmcore = find_vmcore();
     eprintln!("booting with {}", vmcore.display());
-    if seed.is_none() {
+    if cloud_init.is_none() {
         eprintln!("no user-data: the generic image has no default login");
     }
     eprintln!("close the window to stop");
@@ -88,8 +88,8 @@ fn main() {
         .arg(&cmdline)
         .arg(cli.cpus.to_string())
         .arg(cli.mem_mb.to_string());
-    if let Some(seed) = &seed {
-        cmd.arg(seed);
+    if let Some(cloud_init) = &cloud_init {
+        cmd.arg(cloud_init);
     }
     let status = cmd
         .stdin(Stdio::inherit())
@@ -142,7 +142,7 @@ fn find_script() -> PathBuf {
     PathBuf::from("scripts/split-image.py")
 }
 
-/// NoCloud seed: an 8 MiB FAT image labeled `cidata` with user-data and meta-data.
+/// Cloud-init config: an 8 MiB FAT image labeled `cidata` with user-data and meta-data.
 /// Built with hdiutil so this stays a Mac tool and does not need mtools.
 fn write_cidata(dir: &Path, user_data: Option<&Path>, meta_data: Option<&Path>) -> PathBuf {
     let user = match user_data {
