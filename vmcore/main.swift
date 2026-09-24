@@ -46,7 +46,7 @@ let vm = VZVirtualMachine(configuration: config)
 let delegate = VMDelegate()
 vm.delegate = delegate
 
-class App: NSApplication, NSApplicationDelegate, NSWindowDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var window: NSWindow!
     func applicationDidFinishLaunching(_ note: Notification) {
         let view = VZVirtualMachineView(frame: NSRect(x: 0, y: 0, width: 1280, height: 800))
@@ -61,8 +61,8 @@ class App: NSApplication, NSApplicationDelegate, NSWindowDelegate {
         window.contentView = view
         window.delegate = self
         window.makeKeyAndOrderFront(nil)
-        vm.start { err in
-            if let err = err {
+        vm.start { result in
+            if case .failure(let err) = result {
                 fputs("start failed: \(err.localizedDescription)\n", stderr)
                 exit(1)
             }
@@ -85,8 +85,9 @@ class VMDelegate: NSObject, VZVirtualMachineDelegate {
     }
 }
 
-let app = App.shared
+let app = NSApplication.shared
+let appDelegate = AppDelegate()
 app.setActivationPolicy(.regular)
-app.delegate = app as App
+app.delegate = appDelegate
 app.activate(ignoringOtherApps: true)
 app.run()
