@@ -1,6 +1,6 @@
 // The smallest Virtualization.framework boot.
-// Usage: vmcore <disk.img> <uefi-dir> <cpus> <memory-mb>
-// Boots the guest disk with UEFI firmware (VZEFIBootLoader), not a direct kernel.
+// Usage: vmcore <disk.img> <NVRAM> <cpus> <memory-mb>
+// Boots the guest disk with VZEFIBootLoader, not a direct kernel.
 // A GUI window is required: the framework has no serial console on this path.
 
 import Cocoa
@@ -8,16 +8,16 @@ import Virtualization
 
 let args = CommandLine.arguments
 guard args.count == 5 else {
-    fputs("usage: vmcore <disk.img> <uefi-dir> <cpus> <memory-mb>\n", stderr)
+    fputs("usage: vmcore <disk.img> <NVRAM> <cpus> <memory-mb>\n", stderr)
     exit(1)
 }
 
 let diskURL = URL(fileURLWithPath: args[1])
-let uefiURL = URL(fileURLWithPath: args[2], isDirectory: true)
+let nvramURL = URL(fileURLWithPath: args[2])
 let cpus = Int(args[3]) ?? 2
 let memBytes = (UInt64(args[4]) ?? 2048) * 1024 * 1024
 
-try FileManager.default.createDirectory(at: uefiURL, withIntermediateDirectories: true)
+try FileManager.default.createDirectory(at: nvramURL.deletingLastPathComponent(), withIntermediateDirectories: true)
 
 let config = VZVirtualMachineConfiguration()
 config.cpuCount = max(cpus, VZVirtualMachineConfiguration.minimumAllowedCPUCount)
@@ -31,9 +31,10 @@ net.attachment = VZNATNetworkDeviceAttachment()
 config.networkDevices = [net]
 config.entropyDevices = [VZVirtioEntropyDeviceConfiguration()]
 
-// UEFI firmware. The guest disk (Debian nocloud) supplies its own EFI boot entry.
+// Apple's GUI Linux sample stores the EFI variable store in a file named NVRAM
+// and boots with VZEFIBootLoader. The guest disk supplies the boot entry.
 let boot = VZEFIBootLoader()
-boot.variableStore = try VZEFIVariableStore(creatingVariableStoreAt: uefiURL.appendingPathComponent("vars"))
+boot.variableStore = try VZEFIVariableStore(creatingVariableStoreAt: nvramURL)
 config.bootLoader = boot
 
 let gui = VZVirtioGraphicsDeviceConfiguration()

@@ -22,7 +22,7 @@ struct Cli {
     #[arg(long)]
     image: PathBuf,
 
-    /// Where the working copy of the disk and the UEFI variable store go.
+    /// Where the working copy of the disk and NVRAM go.
     /// Defaults to a new directory under /tmp.
     #[arg(long)]
     dir: Option<PathBuf>,
@@ -64,7 +64,7 @@ fn main() {
 
     let status = Command::new(&vmcore)
         .arg(disk)
-        .arg(dir.join("uefi"))
+        .arg(dir.join("NVRAM"))
         .arg(cli.cpus.to_string())
         .arg(cli.mem_mb.to_string())
         .stdin(Stdio::inherit())
